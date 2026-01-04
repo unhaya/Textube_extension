@@ -204,11 +204,19 @@ body {
 
 .result-actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .result-actions .btn {
   flex: 1;
+  min-width: 80px;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.result-actions .btn-primary {
+  flex: 2;
 }
 
 /* Error */

@@ -10,6 +10,7 @@ const elements = {
   resultCount: document.getElementById('resultCount'),
   subtitleText: document.getElementById('subtitleText'),
   copyBtn: document.getElementById('copyBtn'),
+  copyWithPromptBtn: document.getElementById('copyWithPromptBtn'),
   downloadBtn: document.getElementById('downloadBtn'),
   error: document.getElementById('error'),
   errorText: document.getElementById('errorText'),
@@ -17,6 +18,41 @@ const elements = {
   statusText: document.getElementById('statusText'),
   toast: document.getElementById('toast')
 };
+
+// Default prompt for summarization
+const DEFAULT_PROMPT = `以下のテキストを詳細に要約してください：
+
+## 要約作成の指示
+以下の構造で、情報の削除を最小限に抑えた包括的な要約を作成してください。
+
+### 概要
+（テキスト全体の主題と目的を2-3文で説明）
+
+### 詳細な内容分析
+
+1. **主要トピック1**
+   - 核心的な主張や発見
+   - 関連する具体例やデータを含む
+   - 必要に応じて専門用語の説明を追加
+
+2. **主要トピック2**
+   （同様の形式で続ける）
+
+### メタ情報分析（該当する場合）
+- 文書の対象読者：
+- 主要な専門用語：
+- 文脈や背景情報：
+
+## 要約時の注意点
+- 元の情報の削除を最小限に抑え、重要なデータや具体例を保持する
+- 複雑な概念は簡潔かつ正確に説明する
+- 文書のニュアンスや意図を維持する
+- 多言語コンテンツがある場合は、翻訳の正確性に注意する
+- タイトルが示す問題や主張を最優先で抽出し、それに関連する情報を重点的にまとめる
+
+---
+以下が要約対象のテキストです：
+`;
 
 let currentVideoId = null;
 let currentVideoTitle = '';
@@ -29,6 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   elements.extractBtn.addEventListener('click', extractSubtitles);
   elements.copyBtn.addEventListener('click', copyToClipboard);
+  elements.copyWithPromptBtn.addEventListener('click', copyWithPrompt);
   elements.downloadBtn.addEventListener('click', downloadSubtitles);
 });
 
@@ -186,6 +223,28 @@ async function copyToClipboard() {
     elements.subtitleText.select();
     document.execCommand('copy');
     showToast('Copied!');
+  }
+}
+
+// Copy with prompt
+async function copyWithPrompt() {
+  const text = elements.subtitleText.value;
+  if (!text) return;
+
+  const fullText = DEFAULT_PROMPT + '\n' + text;
+
+  try {
+    await navigator.clipboard.writeText(fullText);
+    showToast('Copied with prompt!');
+  } catch (e) {
+    // Fallback
+    const textarea = document.createElement('textarea');
+    textarea.value = fullText;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    showToast('Copied with prompt!');
   }
 }
 
