@@ -63,26 +63,20 @@ start "" "%~dp0start_hidden.vbs"
 echo       Server started in background!
 echo.
 
-:: Open Chrome extensions page
-echo [5/5] Opening Chrome extensions page...
-start "" "chrome://extensions"
-echo       Chrome opened!
-echo.
-
 :: Done
 echo ========================================
 echo    Installation Complete!
 echo ========================================
 echo.
-echo In the Chrome window that just opened:
+echo Next: Load the extension in Chrome
 echo.
-echo   1. Enable "Developer mode" (top right toggle)
-echo   2. Click "Load unpacked"
-echo   3. Select this folder:
+echo   1. Open Chrome
+echo   2. Go to: chrome://extensions
+echo   3. Enable "Developer mode" (top right)
+echo   4. Click "Load unpacked"
+echo   5. Select: %~dp0extension
 echo.
-echo      %~dp0extension
-echo.
-echo The server will auto-start when Windows boots.
+echo Server will auto-start when Windows boots.
 echo.
 echo ========================================
 pause
