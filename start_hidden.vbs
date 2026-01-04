@@ -1,2 +1,5 @@
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run Chr(34) & CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName) & "\start_server.bat" & Chr(34), 0, False
+Set FSO = CreateObject("Scripting.FileSystemObject")
+strPath = FSO.GetParentFolderName(WScript.ScriptFullName)
+WshShell.CurrentDirectory = strPath & "\server"
+WshShell.Run "python server.py", 0, False
