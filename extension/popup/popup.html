@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Textube</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1 class="logo">Textube</h1>
+      <span class="version">v2.0</span>
+    </header>
+
+    <main class="main">
+      <!-- Video Info -->
+      <div class="video-info" id="videoInfo">
+        <div class="video-title" id="videoTitle">Loading...</div>
+      </div>
+
+      <!-- Settings -->
+      <div class="settings">
+        <div class="setting-row checkbox">
+          <input type="checkbox" id="includeTimestamp">
+          <label for="includeTimestamp">Include timestamps</label>
+        </div>
+      </div>
+
+      <!-- Extract Button -->
+      <button id="extractBtn" class="btn btn-primary">
+        Extract Subtitles
+      </button>
+
+      <!-- Loading -->
+      <div class="loading" id="loading" style="display: none;">
+        <div class="spinner"></div>
+        <span>Extracting...</span>
+      </div>
+
+      <!-- Result -->
+      <div class="result" id="result" style="display: none;">
+        <div class="result-header">
+          <span class="result-title">Result</span>
+          <span class="result-count" id="resultCount"></span>
+        </div>
+        <textarea id="subtitleText" readonly></textarea>
+        <div class="result-actions">
+          <button id="copyBtn" class="btn btn-secondary">Copy</button>
+          <button id="downloadBtn" class="btn btn-secondary">Download</button>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div class="error" id="error" style="display: none;">
+        <p id="errorText"></p>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="server-status">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Checking...</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Copy Success Toast -->
+  <div class="toast" id="toast" style="display: none;">Copied!</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
