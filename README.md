@@ -1,14 +1,22 @@
 # Textube - YouTube Subtitle Extractor
 
-YouTube動画から字幕を抽出するChrome拡張機能です。
+A Chrome extension that extracts subtitles from YouTube videos with a local Python server.
 
 ## Features
 
-- YouTube動画から字幕を自動抽出
-- 字幕の言語を自動検出
-- テキストをクリップボードにコピー
-- 要約用プロンプト付きでコピー
-- テキストファイルとしてダウンロード
+- Extract subtitles from any YouTube video with captions
+- Auto-detect subtitle language
+- Copy to clipboard with one click
+- Copy with AI summarization prompt
+- Download as text file
+- Server auto-starts on Windows boot
+
+## Architecture
+
+```
+[Chrome Extension] <--HTTP--> [Local Python Server] <--API--> [YouTube]
+     (popup)                    (localhost:5000)
+```
 
 ## Requirements
 
@@ -18,58 +26,58 @@ YouTube動画から字幕を抽出するChrome拡張機能です。
 
 ## Installation
 
-### 1. Pythonのインストール
+### 1. Install Python
 
-[Python公式サイト](https://www.python.org/downloads/)からダウンロード
+Download from [python.org](https://www.python.org/downloads/)
 
-**重要:** インストール時に「Add Python to PATH」にチェックを入れてください
+**Important:** Check "Add Python to PATH" during installation
 
-### 2. Textubeのインストール
+### 2. Install Textube
 
-1. [Releases](https://github.com/unhaya/Textube_extension/releases)からZIPをダウンロード
-2. 解凍して `install.bat` をダブルクリック
+1. Download ZIP from [Releases](https://github.com/unhaya/Textube_extension/releases)
+2. Extract and double-click `install.bat`
 
-### 3. Chrome拡張機能の読み込み
+This will:
+- Install Python dependencies (Flask, youtube-transcript-api)
+- Register server for auto-startup
+- Start the server in background
 
-1. Chromeで `chrome://extensions` を開く
-2. 右上の「デベロッパーモード」をON
-3. 「パッケージ化されていない拡張機能を読み込む」をクリック
-4. `extension` フォルダを選択
+### 3. Load Chrome Extension
+
+1. Open Chrome and go to `chrome://extensions`
+2. Enable "Developer mode" (top right)
+3. Click "Load unpacked"
+4. Select the `extension` folder
 
 ## Usage
 
-1. YouTubeで動画を開く
-2. ブラウザ右上のTextubeアイコンをクリック
-3. 「Extract Subtitles」をクリック
-4. 字幕が表示されたら：
-   - **Copy** - 字幕のみコピー
-   - **Copy with Prompt** - 要約用プロンプト付きでコピー
-   - **Download** - テキストファイルとして保存
+1. Open a YouTube video
+2. Click the Textube icon in Chrome toolbar
+3. Click "Extract Subtitles"
+4. Choose an action:
+   - **Copy** - Copy subtitles to clipboard
+   - **Copy with Prompt** - Copy with AI summarization prompt
+   - **Download** - Save as text file
 
 ## Uninstall
 
-1. `uninstall.bat` をダブルクリック
-2. Chromeで `chrome://extensions` を開き、Textubeを削除
-3. フォルダを削除
-
-## How it Works
-
-```
-[Chrome Extension] <--HTTP--> [Local Python Server] <--API--> [YouTube]
-     (popup)                    (localhost:5000)
-```
-
-- Chrome拡張機能がローカルのPythonサーバーと通信
-- サーバーがYouTubeから字幕を取得
-- PCを再起動してもサーバーは自動起動
+1. Run `uninstall.bat`
+2. Remove extension from `chrome://extensions`
+3. Delete the folder
 
 ## Troubleshooting
 
-| 問題 | 解決策 |
-|------|--------|
-| Server offline | `install.bat` を再実行 |
-| 字幕が取得できない | その動画に字幕がない可能性 |
-| Pythonがない | python.orgからインストール |
+| Issue | Solution |
+|-------|----------|
+| Server offline | Run `install.bat` again |
+| No subtitles found | Video may not have captions |
+| Python not found | Install Python with PATH option |
+
+## Tech Stack
+
+- **Extension:** Chrome Manifest V3, Vanilla JS
+- **Server:** Python, Flask, youtube-transcript-api
+- **Auto-start:** VBScript + Windows Startup folder
 
 ## License
 
