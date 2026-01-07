@@ -21,7 +21,7 @@ A Chrome extension that extracts subtitles from YouTube videos with a local Pyth
 ## Requirements
 
 - Windows 10/11
-- Python 3.8+
+- Python 3.12+
 - Google Chrome
 
 ## Installation
