@@ -59,6 +59,17 @@ This will:
    - **Copy with Prompt** - Copy with AI summarization prompt
    - **Download** - Save as text file
 
+## Customization
+
+### Change Default Prompt
+
+The "Copy with Prompt" button uses a default AI summarization prompt. To customize it:
+
+1. Open `extension/popup/popup.js`
+2. Find `DEFAULT_PROMPT` at the top of the file
+3. Edit the text to your preferred prompt
+4. Reload the extension in `chrome://extensions`
+
 ## Uninstall
 
 1. Run `uninstall.bat`
