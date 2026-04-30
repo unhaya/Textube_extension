@@ -1,6 +1,12 @@
-"""Create Textube icons from source image with rounded corners"""
-from PIL import Image, ImageDraw
+"""Create Textube icons from source image with rounded corners
+
+Usage:
+    python create_icons.py [source_image_path]
+    # 引数省略時はスクリプトと同じディレクトリの source.png を読む
+"""
 import os
+import sys
+from PIL import Image, ImageDraw
 
 def add_rounded_corners(img, radius):
     """Add rounded corners to an image"""
@@ -27,9 +33,13 @@ def create_icon(source_img, size):
     radius = max(size // 5, 2)
     return add_rounded_corners(resized, radius)
 
-# Source image path
-source_path = r"D:\main\personal\自作アイコン\自作アイコン元画像\textube.png"
 script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# 第1引数があればそれを、無ければ同階層の source.png を使用
+if len(sys.argv) > 1:
+    source_path = sys.argv[1]
+else:
+    source_path = os.path.join(script_dir, 'source.png')
 
 # Load source image
 try:
