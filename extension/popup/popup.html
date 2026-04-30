@@ -10,13 +10,20 @@
   <div class="container">
     <header class="header">
       <h1 class="logo">Textube</h1>
-      <span class="version">v2.0</span>
+      <span class="version">v2.1</span>
     </header>
 
     <main class="main">
       <!-- Video Info -->
       <div class="video-info" id="videoInfo">
         <div class="video-title" id="videoTitle">Loading...</div>
+      </div>
+
+      <!-- URL Input (任意：閲覧中のページに依存しない取得経路) -->
+      <div class="url-input-row">
+        <label for="urlInput" class="url-label">URLから取得（任意）</label>
+        <input type="text" id="urlInput" placeholder="YouTube URL または 動画ID を貼り付け" spellcheck="false" autocomplete="off">
+        <div class="url-hint" id="urlHint"></div>
       </div>
 
       <!-- Settings -->
@@ -62,8 +69,29 @@
       <div class="server-status">
         <span class="status-dot" id="statusDot"></span>
         <span id="statusText">Checking...</span>
+        <span class="footer-spacer"></span>
+        <button type="button" id="settingsBtn" class="icon-btn" title="プロンプトを編集">⚙</button>
       </div>
     </footer>
+  </div>
+
+  <!-- Prompt Edit Modal -->
+  <div class="modal-overlay" id="promptModal" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>要約プロンプトの編集</h2>
+        <button type="button" class="modal-close" id="modalCloseBtn" title="閉じる">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-hint">「Copy with Prompt」ボタン押下時に字幕の前に挿入されるプロンプト</p>
+        <textarea id="promptEditor" spellcheck="false"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="promptResetBtn" class="btn btn-secondary">初期値に戻す</button>
+        <button type="button" id="promptCancelBtn" class="btn btn-secondary">キャンセル</button>
+        <button type="button" id="promptSaveBtn" class="btn btn-primary">保存</button>
+      </div>
+    </div>
   </div>
 
   <!-- Copy Success Toast -->

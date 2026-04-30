@@ -1,0 +1,15 @@
+# ローカル作業ファイル（過去のautostart試作）
+setup_autostart.ps1
+setup_autostart_fixed.ps1
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

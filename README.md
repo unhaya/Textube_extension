@@ -2,9 +2,13 @@
 
 A Chrome extension that extracts subtitles from YouTube videos with a local Python server.
 
+**Latest: v2.1** — URL入力欄からの取得 / プロンプトをUIから編集
+
 ## Features
 
 - Extract subtitles from any YouTube video with captions
+- **Extract from any page via URL input** — YouTubeページに居なくても、URLか動画IDを貼り付ければ字幕取得 (v2.1)
+- **Editable summarization prompt** — popup右下の⚙ボタンから編集・保存・初期化 (v2.1)
 - Auto-detect subtitle language
 - Copy to clipboard with one click
 - Copy with AI summarization prompt
@@ -51,6 +55,8 @@ This will:
 
 ## Usage
 
+### A. YouTubeページで取得（既存）
+
 1. Open a YouTube video
 2. Click the Textube icon in Chrome toolbar
 3. Click "Extract Subtitles"
@@ -59,16 +65,31 @@ This will:
    - **Copy with Prompt** - Copy with AI summarization prompt
    - **Download** - Save as text file
 
+### B. URL入力で取得（v2.1〜）
+
+YouTubeページにいなくても字幕取得できる。
+
+1. 任意のページでTextubeアイコンをクリック
+2. 「URLから取得（任意）」欄に YouTube URL または 11桁の動画IDを貼り付け
+3. 緑のヒント「動画ID: xxxxxxxxxxx」が出ればOK
+4. 「Extract Subtitles」をクリック
+
+URL欄に何か入力されている場合は **URL欄の動画が優先**される（タブの動画ではなく）。
+
 ## Customization
 
-### Change Default Prompt
+### プロンプトの編集（v2.1〜）
 
-The "Copy with Prompt" button uses a default AI summarization prompt. To customize it:
+「Copy with Prompt」で挿入される要約プロンプトをUIから編集できる。
 
-1. Open `extension/popup/popup.js`
-2. Find `DEFAULT_PROMPT` at the top of the file
-3. Edit the text to your preferred prompt
-4. Reload the extension in `chrome://extensions`
+1. popup右下の **⚙ボタン** をクリック
+2. モーダルでプロンプトを編集
+3. ボタン操作：
+   - **保存** — 編集内容を保存（次回以降も有効）
+   - **初期値に戻す** — 編集欄を初期プロンプトに戻す（保存はまだ）
+   - **キャンセル** — 変更を破棄して閉じる
+
+保存先は `chrome.storage.local`（拡張内ストレージ）。プロファイル単位で永続化される。
 
 ## Uninstall
 

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Textube - YouTube Subtitle Extractor",
-  "version": "2.0.0",
-  "description": "Extract subtitles from YouTube videos via local server",
+  "version": "2.1.0",
+  "description": "Extract subtitles from YouTube videos via local server (URL入力 / プロンプト編集対応)",
   "permissions": [
     "activeTab",
     "storage"
