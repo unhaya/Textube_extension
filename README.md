@@ -111,6 +111,12 @@ URL欄に何か入力されている場合は **URL欄の動画が優先**され
 - **Server:** Python, Flask, youtube-transcript-api
 - **Auto-start:** VBScript + Windows Startup folder
 
+## 関連プロジェクト
+
+### 🖥 [Textube_app](https://github.com/unhaya/Textube_app)
+履歴管理・サムネ表示・動画ダウンロード(1080p)・翻訳まで含む **デスクトップアプリ版** (PyQt5)。  
+本格的に字幕を活用したい人向け。
+
 ## License
 
 MIT
