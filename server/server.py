@@ -2,13 +2,15 @@
 Textube Chrome Extension - Local Server
 YouTube字幕取得用ローカルサーバー
 
-Textube2.0のyoutube_v3.pyをベースに作成
-youtube-transcript-apiを優先使用（高速・安定）
+字幕取得戦略（2026春 YouTube botブロック対応）:
+1. youtube-transcript-api を試みる（高速・Cookie不要）
+2. 失敗したら yt-dlp + Firefox Cookie にフォールバック（bot検知回避）
 """
 
 import os
 import sys
 import re
+import tempfile
 from typing import Optional, List, Dict, Any
 
 from flask import Flask, request, jsonify
@@ -18,13 +20,19 @@ from flask_cors import CORS
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
     TRANSCRIPT_API_AVAILABLE = True
-    # APIインスタンスを作成
     ytt_api = YouTubeTranscriptApi()
 except ImportError:
     TRANSCRIPT_API_AVAILABLE = False
     ytt_api = None
     print("WARNING: youtube-transcript-api not installed")
-    print("Run: pip install youtube-transcript-api")
+
+# yt-dlp（フォールバック。Firefox Cookie + Deno で bot検知を回避）
+try:
+    import yt_dlp
+    YTDLP_AVAILABLE = True
+except ImportError:
+    YTDLP_AVAILABLE = False
+    print("WARNING: yt-dlp not installed")
 
 app = Flask(__name__)
 CORS(app)
@@ -63,7 +71,7 @@ def extract_video_id(video_id_or_url: str) -> Optional[str]:
 
 
 def extract_subtitles(video_id: str, lang_code: str = 'auto') -> Dict[str, Any]:
-    """字幕を取得（新しいAPI v1.0.0+対応）"""
+    """字幕を取得。youtube-transcript-api → yt-dlp+Firefox の順でフォールバック"""
     result = {
         'success': False,
         'subtitles': [],
@@ -72,83 +80,152 @@ def extract_subtitles(video_id: str, lang_code: str = 'auto') -> Dict[str, Any]:
         'language': None
     }
 
-    if not TRANSCRIPT_API_AVAILABLE:
-        result['error'] = "youtube-transcript-api is not installed"
-        return result
+    # --- 一次試行: youtube-transcript-api ---
+    if TRANSCRIPT_API_AVAILABLE:
+        try:
+            print(f"[INFO] Trying youtube-transcript-api: {video_id}, lang={lang_code}")
+            transcript_list = ytt_api.list(video_id)
+            subtitle_data = None
+            is_auto = False
+            found_lang = None
 
-    try:
-        print(f"[INFO] Fetching subtitles for {video_id}, lang: {lang_code}")
-
-        # 新しいAPI: ytt_api.list() を使用
-        transcript_list = ytt_api.list(video_id)
-
-        subtitle_data = None
-        is_auto = False
-        found_lang = None
-
-        if lang_code == 'auto':
-            # 自動: 利用可能な最初の字幕を取得
-            print(f"[INFO] Auto-detecting language...")
-            for transcript in transcript_list:
-                try:
-                    subtitle_data = transcript.fetch()
-                    is_auto = transcript.is_generated
-                    found_lang = transcript.language
-                    print(f"[INFO] Using {found_lang} subtitles ({'auto-generated' if is_auto else 'manual'})")
-                    break
-                except:
-                    continue
-        else:
-            # 言語指定: 指定言語を探す
-            lang_variants = [lang_code]
-            if lang_code == 'zh-Hans':
-                lang_variants = ['zh-Hans', 'zh-CN', 'zh']
-            elif lang_code == 'zh-Hant':
-                lang_variants = ['zh-Hant', 'zh-TW', 'zh']
-            elif '-' not in lang_code:
-                lang_variants.extend([
-                    f'{lang_code}-{r}' for r in ['US', 'GB', 'JP', 'CN', 'TW', 'KR']
-                ])
-
-            try:
-                transcript = transcript_list.find_transcript(lang_variants)
-                subtitle_data = transcript.fetch()
-                is_auto = transcript.is_generated
-                found_lang = transcript.language
-                print(f"[INFO] Found {found_lang} subtitles ({'auto-generated' if is_auto else 'manual'})")
-            except:
-                # フォールバック
-                print(f"[INFO] Language not found, trying any available...")
+            if lang_code == 'auto':
                 for transcript in transcript_list:
                     try:
                         subtitle_data = transcript.fetch()
                         is_auto = transcript.is_generated
                         found_lang = transcript.language
-                        print(f"[INFO] Using {found_lang} subtitles")
                         break
                     except:
                         continue
+            else:
+                lang_variants = [lang_code]
+                if lang_code == 'zh-Hans':
+                    lang_variants = ['zh-Hans', 'zh-CN', 'zh']
+                elif lang_code == 'zh-Hant':
+                    lang_variants = ['zh-Hant', 'zh-TW', 'zh']
+                elif '-' not in lang_code:
+                    lang_variants.extend([f'{lang_code}-{r}' for r in ['US', 'GB', 'JP', 'CN', 'TW', 'KR']])
+                try:
+                    transcript = transcript_list.find_transcript(lang_variants)
+                    subtitle_data = transcript.fetch()
+                    is_auto = transcript.is_generated
+                    found_lang = transcript.language
+                except:
+                    for transcript in transcript_list:
+                        try:
+                            subtitle_data = transcript.fetch()
+                            is_auto = transcript.is_generated
+                            found_lang = transcript.language
+                            break
+                        except:
+                            continue
 
-        if not subtitle_data:
+            if subtitle_data:
+                subtitles = [{'start': item.start, 'duration': item.duration, 'text': item.text.strip()} for item in subtitle_data]
+                result.update({'success': True, 'subtitles': subtitles, 'is_auto_generated': is_auto, 'language': found_lang})
+                print(f"[INFO] transcript-api OK: {len(subtitles)} entries ({found_lang})")
+                return result
+        except Exception as e:
+            print(f"[INFO] transcript-api failed ({type(e).__name__}), trying yt-dlp fallback...")
+
+    # --- フォールバック: yt-dlp + Firefox Cookie (2026春 botブロック対応) ---
+    if not YTDLP_AVAILABLE:
+        result['error'] = "字幕取得失敗: yt-dlp not installed"
+        return result
+
+    try:
+        print(f"[INFO] Trying yt-dlp + Firefox Cookie: {video_id}")
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'skip_download': True,
+            'cookiesfrombrowser': ('firefox',),
+        }
+        actual_lang = lang_code if lang_code != 'auto' else 'ja'
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+
+        manual = info.get('subtitles', {})
+        auto_caps = info.get('automatic_captions', {})
+
+        # 言語選択（希望 → 英語 → 最初の利用可能）
+        sub_data = None
+        is_auto = False
+        found_lang = None
+
+        def try_lang(code, data, is_auto_flag):
+            if code in data:
+                return data[code], is_auto_flag, code
+            for k in data:
+                if k.startswith(code):
+                    return data[k], is_auto_flag, k
+            return None, is_auto_flag, None
+
+        if lang_code != 'auto':
+            sub_data, is_auto, found_lang = try_lang(actual_lang, manual, False)
+            if not sub_data:
+                sub_data, is_auto, found_lang = try_lang(actual_lang, auto_caps, True)
+        if not sub_data:
+            sub_data, is_auto, found_lang = try_lang('ja', manual, False) or try_lang('ja', auto_caps, True)
+        if not sub_data and manual:
+            found_lang = next(iter(manual)); sub_data = manual[found_lang]; is_auto = False
+        if not sub_data and auto_caps:
+            found_lang = next(iter(auto_caps)); sub_data = auto_caps[found_lang]; is_auto = True
+
+        if not sub_data:
             result['error'] = "字幕が見つかりません"
             return result
 
-        subtitles = []
-        for item in subtitle_data:
-            subtitles.append({
-                'start': item.start,
-                'duration': item.duration,
-                'text': item.text.strip()
-            })
+        # vtt/json3 形式のURLから字幕テキストを取得
+        import urllib.request
+        sub_url = None
+        for fmt in sub_data:
+            if fmt.get('ext') in ('vtt', 'json3', 'srv3', 'srv2', 'srv1'):
+                sub_url = fmt.get('url')
+                if sub_url:
+                    break
+        if not sub_url and sub_data:
+            sub_url = sub_data[0].get('url')
 
-        result['success'] = True
-        result['subtitles'] = subtitles
-        result['is_auto_generated'] = is_auto
-        result['language'] = found_lang
-        print(f"[INFO] Successfully extracted {len(subtitles)} subtitle entries")
+        if not sub_url:
+            result['error'] = "字幕URLが取得できません"
+            return result
+
+        with urllib.request.urlopen(sub_url, timeout=15) as resp:
+            raw = resp.read().decode('utf-8')
+
+        # VTT パース（簡易）
+        subtitles = []
+        for block in re.split(r'\n\n+', raw):
+            lines = block.strip().splitlines()
+            time_line = next((l for l in lines if '-->' in l), None)
+            if not time_line:
+                continue
+            text_lines = [l for l in lines if '-->' not in l and not l.strip().isdigit() and l.strip() and not l.startswith('WEBVTT')]
+            text = ' '.join(text_lines).strip()
+            if not text:
+                continue
+            parts = time_line.split('-->')
+            def ts(s):
+                s = s.strip().split()[0]
+                h, m, sec = (s.split(':') + ['0', '0', '0'])[:3]
+                return int(h)*3600 + int(m)*60 + float(sec.replace(',', '.'))
+            start = ts(parts[0])
+            end = ts(parts[1])
+            subtitles.append({'start': start, 'duration': end - start, 'text': re.sub(r'<[^>]+>', '', text).strip()})
+
+        if not subtitles:
+            result['error'] = "字幕のパースに失敗"
+            return result
+
+        result.update({'success': True, 'subtitles': subtitles, 'is_auto_generated': is_auto, 'language': found_lang})
+        print(f"[INFO] yt-dlp OK: {len(subtitles)} entries ({found_lang})")
 
     except Exception as e:
-        print(f"[ERROR] {type(e).__name__}: {str(e)}")
+        print(f"[ERROR] yt-dlp fallback failed: {type(e).__name__}: {e}")
         result['error'] = f"字幕取得エラー: {str(e)}"
 
     return result
