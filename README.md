@@ -2,7 +2,7 @@
 
 A Chrome extension that extracts subtitles from YouTube videos with a local Python server.
 
-**Latest: v2.1** — URL入力欄からの取得 / プロンプトをUIから編集
+**Latest: v2.2** — Textube_app v2.2 対応（YouTube 2026春 botブロック対応版）
 
 ## Features
 
@@ -117,7 +117,7 @@ URL欄に何か入力されている場合は **URL欄の動画が優先**され
 履歴管理・サムネ表示・動画ダウンロード(1080p)・翻訳まで含む **デスクトップアプリ版** (PyQt5)。
 本格的に字幕を活用したい人向け。
 
-👉 **最新リリース**: [v2.1.0 をダウンロード](https://github.com/unhaya/Textube_app/releases/tag/v2.1.0)（Windows用 exe バンドル zip）
+👉 **最新リリース**: [v2.2 をダウンロード](https://github.com/unhaya/Textube_app/releases/tag/v2.2)（Windows用 exe バンドル zip）
 
 ## License
 
