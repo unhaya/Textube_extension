@@ -37,6 +37,13 @@ except ImportError:
 app = Flask(__name__)
 CORS(app)
 
+# ---- 言語設定 ---------------------------------------------------------------
+# ExtensionのUIに言語選択はないため、ここで優先取得言語を指定する。
+# 例: 'ja' → 日本語優先、'en' → 英語優先、'ko' → 韓国語優先
+# 対象動画にDEFAULT_LANGがなければ 'en' → 最初に見つかった言語 の順でフォールバック。
+DEFAULT_LANG = 'ja'
+# -----------------------------------------------------------------------------
+
 # 対応言語リスト
 SUPPORTED_LANGUAGES = [
     {'code': 'ja', 'name': '日本語'},
@@ -129,32 +136,24 @@ def extract_subtitles(video_id: str, lang_code: str = 'auto') -> Dict[str, Any]:
         except Exception as e:
             print(f"[INFO] transcript-api failed ({type(e).__name__}), trying yt-dlp fallback...")
 
-    # --- フォールバック: yt-dlp + Firefox Cookie (2026春 botブロック対応) ---
+    # --- フォールバック: yt-dlp + ブラウザCookie (2026春 botブロック対応) ---
     if not YTDLP_AVAILABLE:
         result['error'] = "字幕取得失敗: yt-dlp not installed"
         return result
 
     try:
-        print(f"[INFO] Trying yt-dlp + Firefox Cookie: {video_id}")
         url = f"https://www.youtube.com/watch?v={video_id}"
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'skip_download': True,
-            'cookiesfrombrowser': ('firefox',),
-        }
-        actual_lang = lang_code if lang_code != 'auto' else 'ja'
+        actual_lang = lang_code if lang_code != 'auto' else DEFAULT_LANG
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-
-        manual = info.get('subtitles', {})
-        auto_caps = info.get('automatic_captions', {})
-
-        # 言語選択（希望 → 英語 → 最初の利用可能）
-        sub_data = None
+        # ブラウザCookie優先順: brave → chrome → firefox → なし
+        # info取得とURL downloadを同一 ydl コンテキスト内で行い cookies を使い回す
+        import json as _json
+        browsers = ['brave', 'chrome', 'firefox', None]
+        raw = None
+        sub_ext = None
         is_auto = False
         found_lang = None
+        last_err = None
 
         def try_lang(code, data, is_auto_flag):
             if code in data:
@@ -164,61 +163,136 @@ def extract_subtitles(video_id: str, lang_code: str = 'auto') -> Dict[str, Any]:
                     return data[k], is_auto_flag, k
             return None, is_auto_flag, None
 
-        if lang_code != 'auto':
-            sub_data, is_auto, found_lang = try_lang(actual_lang, manual, False)
-            if not sub_data:
-                sub_data, is_auto, found_lang = try_lang(actual_lang, auto_caps, True)
-        if not sub_data:
-            sub_data, is_auto, found_lang = try_lang('ja', manual, False) or try_lang('ja', auto_caps, True)
-        if not sub_data and manual:
-            found_lang = next(iter(manual)); sub_data = manual[found_lang]; is_auto = False
-        if not sub_data and auto_caps:
-            found_lang = next(iter(auto_caps)); sub_data = auto_caps[found_lang]; is_auto = True
+        for browser in browsers:
+            try:
+                ydl_opts = {
+                    'quiet': True,
+                    'no_warnings': True,
+                    'skip_download': True,
+                    'writesubtitles': True,
+                    'writeautomaticsub': True,
+                    'subtitleslangs': ['all'],
+                }
+                if browser:
+                    ydl_opts['cookiesfrombrowser'] = (browser,)
+                    print(f"[INFO] yt-dlp trying browser={browser}: {video_id}")
+                else:
+                    print(f"[INFO] yt-dlp trying without cookies: {video_id}")
 
-        if not sub_data:
-            result['error'] = "字幕が見つかりません"
-            return result
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                    print(f"[INFO] yt-dlp extract_info OK (browser={browser})")
 
-        # vtt/json3 形式のURLから字幕テキストを取得
-        import urllib.request
-        sub_url = None
-        for fmt in sub_data:
-            if fmt.get('ext') in ('vtt', 'json3', 'srv3', 'srv2', 'srv1'):
-                sub_url = fmt.get('url')
-                if sub_url:
+                    manual = info.get('subtitles', {}) or {}
+                    auto_caps = info.get('automatic_captions', {}) or {}
+
+                    # 言語選択（希望 → ja → en → 最初の利用可能）
+                    sub_data = None
+                    if lang_code != 'auto':
+                        for d, a in [(manual, False), (auto_caps, True)]:
+                            r = try_lang(actual_lang, d, a)
+                            if r[0]: sub_data, is_auto, found_lang = r; break
+                    if not sub_data:
+                        for d, a in [(manual, False), (auto_caps, True)]:
+                            r = try_lang(DEFAULT_LANG, d, a)
+                            if r[0]: sub_data, is_auto, found_lang = r; break
+                    if not sub_data:
+                        # DEFAULT_LANG が英語以外の場合は英語も試す
+                        fallback2 = 'en' if DEFAULT_LANG != 'en' else 'ja'
+                        for d, a in [(manual, False), (auto_caps, True)]:
+                            r = try_lang(fallback2, d, a)
+                            if r[0]: sub_data, is_auto, found_lang = r; break
+                    if not sub_data and manual:
+                        found_lang = next(iter(manual)); sub_data = manual[found_lang]; is_auto = False
+                    if not sub_data and auto_caps:
+                        found_lang = next(iter(auto_caps)); sub_data = auto_caps[found_lang]; is_auto = True
+
+                    if not sub_data:
+                        result['error'] = "字幕が見つかりません"
+                        return result
+
+                    # json3優先でURL選択（YouTube native形式、最も安定）
+                    sub_url = None
+                    for ext in ('json3', 'vtt', 'srv3', 'srv2', 'srv1'):
+                        for fmt in sub_data:
+                            if fmt.get('ext') == ext and fmt.get('url'):
+                                sub_url = fmt['url']
+                                sub_ext = ext
+                                break
+                        if sub_url:
+                            break
+                    if not sub_url and sub_data:
+                        sub_url = sub_data[0].get('url')
+                        sub_ext = sub_data[0].get('ext', 'vtt')
+
+                    if not sub_url:
+                        result['error'] = "字幕URLが取得できません"
+                        return result
+
+                    # ydl.urlopen でcookies付きダウンロード（429対策）
+                    print(f"[INFO] Fetching subtitle via ydl.urlopen (ext={sub_ext})")
+                    raw = ydl.urlopen(sub_url).read().decode('utf-8')
                     break
-        if not sub_url and sub_data:
-            sub_url = sub_data[0].get('url')
 
-        if not sub_url:
-            result['error'] = "字幕URLが取得できません"
+            except Exception as e:
+                last_err = e
+                print(f"[INFO] yt-dlp browser={browser} failed: {type(e).__name__}: {e}")
+                raw = None
+                continue
+
+        if raw is None:
+            result['error'] = f"yt-dlp全ブラウザ失敗: {last_err}"
             return result
 
-        with urllib.request.urlopen(sub_url, timeout=15) as resp:
-            raw = resp.read().decode('utf-8')
-
-        # VTT パース（簡易）
         subtitles = []
-        for block in re.split(r'\n\n+', raw):
-            lines = block.strip().splitlines()
-            time_line = next((l for l in lines if '-->' in l), None)
-            if not time_line:
-                continue
-            text_lines = [l for l in lines if '-->' not in l and not l.strip().isdigit() and l.strip() and not l.startswith('WEBVTT')]
-            text = ' '.join(text_lines).strip()
-            if not text:
-                continue
-            parts = time_line.split('-->')
+
+        if sub_ext == 'json3' or raw.strip().startswith('{'):
+            # json3 形式: {"events": [{"tStartMs":0,"dDurationMs":5000,"segs":[{"utf8":"text"}]}]}
+            data = _json.loads(raw)
+            for ev in data.get('events', []):
+                segs = ev.get('segs')
+                if not segs:
+                    continue
+                text = ''.join(s.get('utf8', '') for s in segs).strip()
+                text = re.sub(r'<[^>]+>', '', text).strip()
+                if not text or text == '\n':
+                    continue
+                start_ms = ev.get('tStartMs', 0)
+                dur_ms = ev.get('dDurationMs', 0)
+                subtitles.append({
+                    'start': start_ms / 1000,
+                    'duration': dur_ms / 1000,
+                    'text': text,
+                })
+        else:
+            # VTT / SRV 形式
             def ts(s):
                 s = s.strip().split()[0]
-                h, m, sec = (s.split(':') + ['0', '0', '0'])[:3]
-                return int(h)*3600 + int(m)*60 + float(sec.replace(',', '.'))
-            start = ts(parts[0])
-            end = ts(parts[1])
-            subtitles.append({'start': start, 'duration': end - start, 'text': re.sub(r'<[^>]+>', '', text).strip()})
+                parts2 = s.replace(',', '.').split(':')
+                parts2 = (['0'] * (3 - len(parts2))) + parts2
+                h, m, sec = parts2
+                return int(h) * 3600 + int(m) * 60 + float(sec)
+
+            for block in re.split(r'\n\n+', raw):
+                lines = block.strip().splitlines()
+                time_line = next((l for l in lines if '-->' in l), None)
+                if not time_line:
+                    continue
+                text_lines = [l for l in lines if '-->' not in l
+                              and not l.strip().isdigit()
+                              and l.strip()
+                              and not l.startswith('WEBVTT')
+                              and not l.startswith('NOTE')]
+                text = re.sub(r'<[^>]+>', '', ' '.join(text_lines)).strip()
+                if not text:
+                    continue
+                tp = time_line.split('-->')
+                start = ts(tp[0])
+                end = ts(tp[1])
+                subtitles.append({'start': start, 'duration': end - start, 'text': text})
 
         if not subtitles:
-            result['error'] = "字幕のパースに失敗"
+            result['error'] = f"字幕のパースに失敗 (ext={sub_ext}, len={len(raw)})"
             return result
 
         result.update({'success': True, 'subtitles': subtitles, 'is_auto_generated': is_auto, 'language': found_lang})
@@ -226,7 +300,8 @@ def extract_subtitles(video_id: str, lang_code: str = 'auto') -> Dict[str, Any]:
 
     except Exception as e:
         print(f"[ERROR] yt-dlp fallback failed: {type(e).__name__}: {e}")
-        result['error'] = f"字幕取得エラー: {str(e)}"
+        import traceback; traceback.print_exc()
+        result['error'] = f"yt-dlp エラー [{type(e).__name__}]: {str(e)}"
 
     return result
 

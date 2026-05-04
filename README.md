@@ -2,14 +2,21 @@
 
 A Chrome extension that extracts subtitles from YouTube videos with a local Python server.
 
-**Latest: v2.2** — Textube_app v2.2 対応（YouTube 2026春 botブロック対応版）
+**Latest: v2.2** — YouTube 2026春 botブロック対応 + 言語選択修正版
+
+## What's new in v2.2
+
+- **yt-dlp + ブラウザCookie フォールバック**: youtube-transcript-api が IPブロックされた場合に yt-dlp（Brave → Chrome → Firefox → なし の順で Cookie を試行）で突破
+- **HTTP 429 修正**: 字幕URLのダウンロードを Cookie なし素 request から yt-dlp の `urlopen`（Cookie付き）に変更。英語など非日本語字幕で発生していた 429 を解消
+- **言語フォールバック修正**: 英語など希望言語がない動画でも利用可能な言語に自動フォールバック（従来は「字幕なし」と誤判定していた）
+- **デフォルト言語の変更方法**: UIに言語選択はないが、`server/server.py` の先頭付近 `DEFAULT_LANG = 'ja'` を編集すれば取得優先言語を変更できる
 
 ## Features
 
 - Extract subtitles from any YouTube video with captions
 - **Extract from any page via URL input** — YouTubeページに居なくても、URLか動画IDを貼り付ければ字幕取得 (v2.1)
 - **Editable summarization prompt** — popup右下の⚙ボタンから編集・保存・初期化 (v2.1)
-- Auto-detect subtitle language
+- Auto-detect subtitle language (default: Japanese — change `DEFAULT_LANG` in `server/server.py`)
 - Copy to clipboard with one click
 - Copy with AI summarization prompt
 - Download as text file
