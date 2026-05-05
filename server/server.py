@@ -16,6 +16,11 @@ from typing import Optional, List, Dict, Any
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
+# Deno PATHを確保（yt-dlp が JS challenge 解決に使用）
+_deno_bin = os.path.join(os.path.expanduser("~"), ".deno", "bin")
+if os.path.isdir(_deno_bin) and _deno_bin not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = _deno_bin + os.pathsep + os.environ.get("PATH", "")
+
 # youtube-transcript-api（新しいAPI v1.0.0+）
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
@@ -36,6 +41,16 @@ except ImportError:
 
 app = Flask(__name__)
 CORS(app)
+
+# ---- Cookie設定 -------------------------------------------------------------
+# Cookieファイルの優先パス（デスクトップ版と共有。なければブラウザCookieを使う）
+_SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
+_COOKIE_CANDIDATES = [
+    os.path.join(_SERVER_DIR, "..", "cookies", "youtube_cookies.txt"),
+    r"D:\main\python_cord\Textube\Textube2.0\cookies\youtube_cookies.txt",
+]
+COOKIE_FILE = next((p for p in _COOKIE_CANDIDATES if os.path.isfile(p)), None)
+# -----------------------------------------------------------------------------
 
 # ---- 言語設定 ---------------------------------------------------------------
 # ExtensionのUIに言語選択はないため、ここで優先取得言語を指定する。
@@ -148,7 +163,14 @@ def extract_subtitles(video_id: str, lang_code: str = 'auto') -> Dict[str, Any]:
         # ブラウザCookie優先順: brave → chrome → firefox → なし
         # info取得とURL downloadを同一 ydl コンテキスト内で行い cookies を使い回す
         import json as _json
-        browsers = ['brave', 'chrome', 'firefox', None]
+
+        # Cookie試行順: ファイル → brave → chrome → firefox → なし
+        # player_client は 'default' に任せて Deno が PO Token を自動生成
+        _cookie_sources = []
+        if COOKIE_FILE:
+            _cookie_sources.append(('file', COOKIE_FILE))
+        _cookie_sources += [('browser', b) for b in ['firefox', 'brave', 'chrome', None]]
+
         raw = None
         sub_ext = None
         is_auto = False
@@ -163,7 +185,7 @@ def extract_subtitles(video_id: str, lang_code: str = 'auto') -> Dict[str, Any]:
                     return data[k], is_auto_flag, k
             return None, is_auto_flag, None
 
-        for browser in browsers:
+        for src_type, src_val in _cookie_sources:
             try:
                 ydl_opts = {
                     'quiet': True,
@@ -172,16 +194,22 @@ def extract_subtitles(video_id: str, lang_code: str = 'auto') -> Dict[str, Any]:
                     'writesubtitles': True,
                     'writeautomaticsub': True,
                     'subtitleslangs': ['all'],
+                    'extractor_args': {
+                        'youtube': {'player_client': ['default']},
+                    },
                 }
-                if browser:
-                    ydl_opts['cookiesfrombrowser'] = (browser,)
-                    print(f"[INFO] yt-dlp trying browser={browser}: {video_id}")
+                if src_type == 'file':
+                    ydl_opts['cookiefile'] = src_val
+                    print(f"[INFO] yt-dlp trying cookie file: {video_id}")
+                elif src_type == 'browser' and src_val:
+                    ydl_opts['cookiesfrombrowser'] = (src_val,)
+                    print(f"[INFO] yt-dlp trying browser={src_val}: {video_id}")
                 else:
                     print(f"[INFO] yt-dlp trying without cookies: {video_id}")
 
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     info = ydl.extract_info(url, download=False)
-                    print(f"[INFO] yt-dlp extract_info OK (browser={browser})")
+                    print(f"[INFO] yt-dlp extract_info OK ({src_type}={src_val})")
 
                     manual = info.get('subtitles', {}) or {}
                     auto_caps = info.get('automatic_captions', {}) or {}
@@ -236,7 +264,7 @@ def extract_subtitles(video_id: str, lang_code: str = 'auto') -> Dict[str, Any]:
 
             except Exception as e:
                 last_err = e
-                print(f"[INFO] yt-dlp browser={browser} failed: {type(e).__name__}: {e}")
+                print(f"[INFO] yt-dlp {src_type}={src_val} failed: {type(e).__name__}: {e}")
                 raw = None
                 continue
 
