@@ -2,11 +2,19 @@
 
 A Chrome extension that extracts subtitles from YouTube videos with a local Python server.
 
-**Latest: v2.2** — YouTube 2026春 botブロック対応 + 言語選択修正版
+**Latest: v2.2.1** — YouTube 2026春 botブロック対応強化版
+
+## What's new in v2.2.1
+
+- **Firefox Cookie を優先使用**: Cookie試行順を Firefox → Brave → Chrome → なし に変更。Brave使用中（DBロック中）でも Firefox Cookie で字幕取得できる
+- **Deno PATH 自動設定**: サーバー起動時に `~/.deno/bin` を PATH へ追加。yt-dlp が JS challenge を自動解決できる
+- **`player_client: default`**: yt-dlp のデフォルト設定に委ねることで最適なクライアント（tv_downgraded等）が自動選択される
+- **Cookie ファイル共有**: デスクトップ版 Textube_app の `cookies/youtube_cookies.txt` を自動参照
+- **`restart_server.bat` 追加**: ポート5000のサーバーをワンクリックで再起動できる BAT ファイル
 
 ## What's new in v2.2
 
-- **yt-dlp + ブラウザCookie フォールバック**: youtube-transcript-api が IPブロックされた場合に yt-dlp（Brave → Chrome → Firefox → なし の順で Cookie を試行）で突破
+- **yt-dlp + ブラウザCookie フォールバック**: youtube-transcript-api が IPブロックされた場合に yt-dlp（Firefox → Brave → Chrome → なし の順で Cookie を試行）で突破
 - **HTTP 429 修正**: 字幕URLのダウンロードを Cookie なし素 request から yt-dlp の `urlopen`（Cookie付き）に変更。英語など非日本語字幕で発生していた 429 を解消
 - **言語フォールバック修正**: 英語など希望言語がない動画でも利用可能な言語に自動フォールバック（従来は「字幕なし」と誤判定していた）
 - **デフォルト言語の変更方法**: UIに言語選択はないが、`server/server.py` の先頭付近 `DEFAULT_LANG = 'ja'` を編集すれば取得優先言語を変更できる
@@ -108,7 +116,8 @@ URL欄に何か入力されている場合は **URL欄の動画が優先**され
 
 | Issue | Solution |
 |-------|----------|
-| Server offline | Run `install.bat` again |
+| Server offline | Double-click `restart_server.bat` |
+| "Sign in to confirm you're not a bot" | Firefox を起動した状態で `restart_server.bat` を実行（Firefox Cookie を使用） |
 | No subtitles found | Video may not have captions |
 | Python not found | Install Python with PATH option |
 
