@@ -2,7 +2,12 @@
 
 A Chrome extension that extracts subtitles from YouTube videos with a local Python server.
 
-**Latest: v2.2.1** — YouTube 2026春 botブロック対応強化版
+**Latest: v2.2.2** — 自動起動修復手順を追記
+
+## What's new in v2.2.2
+
+- **トラブルシューティング追記**: `install.bat` のスタートアップ登録が silent に失敗していた場合の復旧手順を README に追加。`setup_autostart_fixed.ps1` を PowerShell で実行すれば `Textube_Server.lnk` が `スタートアップ` フォルダに作成され、再起動後も自動でサーバーが立ち上がる
+- **動作未変更**: サーバー / Extension 本体のロジックに変更なし（v2.2.1 と同等）
 
 ## What's new in v2.2.1
 
@@ -117,9 +122,22 @@ URL欄に何か入力されている場合は **URL欄の動画が優先**され
 | Issue | Solution |
 |-------|----------|
 | Server offline | Double-click `restart_server.bat` |
+| 再起動後に毎回 Server offline になる | 自動起動が登録されていない。下記「自動起動が効かない場合」を実行 |
 | "Sign in to confirm you're not a bot" | Firefox を起動した状態で `restart_server.bat` を実行（Firefox Cookie を使用） |
 | No subtitles found | Video may not have captions |
 | Python not found | Install Python with PATH option |
+
+### 自動起動が効かない場合（v2.2.2 追記）
+
+`install.bat` のスタートアップ登録は silent に失敗することがある（`>nul 2>&1` で握りつぶしている）。
+`スタートアップ` フォルダに `Textube_Server.lnk` がない場合、PowerShell で次を実行する:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ".\setup_autostart_fixed.ps1"
+```
+
+`Textube_Server.lnk` が `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\` に作成され、次回 Windows 起動時から自動でサーバーが立ち上がる。
+すぐにサーバーを起動するときは続けて `restart_server.bat` をダブルクリック。
 
 ## Tech Stack
 
